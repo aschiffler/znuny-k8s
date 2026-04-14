@@ -1,0 +1,39 @@
+{{- $rel := .Release -}}
+{{- $val := .Values -}}
+{{- if .Values.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $rel.Name }}-ingress
+  namespace: {{ $rel.Namespace }}
+  labels:
+    app: znuny
+    service: {{ $rel.Name }}-{{ $rel.Namespace }}
+  {{- if .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  rules:
+    {{- range $domain := .Values.ingress.domains }}
+    - host: {{ $domain }}
+      http:
+        paths:
+          - backend:
+              service:
+                name: {{ $rel.Name }}
+                port:
+                  number: {{ $val.service.port }}
+            path: /
+            pathType: Prefix
+    {{- end }}
+{{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        {{- range $domain := .Values.ingress.domains }}
+        - {{ $domain }}
+        {{- end }}
+      secretName: {{ $rel.Name }}-tls
+{{- end }}
+{{- end }}

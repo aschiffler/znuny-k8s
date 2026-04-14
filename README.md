@@ -1,0 +1,1 @@
+This repository contains a Helm chart and Dockerfile used to deploy znuny.

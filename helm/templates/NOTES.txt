@@ -1,0 +1,113 @@
+---
+
+**Please be patient while the chart is being deployed**
+
+## Database
+
+The database backend host is defined to "{{ .Values.config.database.host | default "localhost" }}".
+{{- if not .Values.config.database.externalSecret }}
+Credentials defined in values are store in the secret Kubernetes "{{ .Release.Name }}-database-credentials".
+{{- else }}
+Credentials are store in the secret Kubernetes "{{ .Values.config.database.externalSecret.name }}" defined in values.
+{{- end }}
+
+## Local users
+
+The default administrator user is "{{ .Values.config.users.admin.username }}".
+{{- if not .Values.config.users.admin.externalSecret }}
+If its password has been automatically generated, run the following command to retrive it:
+
+    echo $(kubectl get secret {{ .Release.Name }}-users-admin-credentials --namespace {{ .Release.Namespace }} -o jsonpath="{.data.ZNUNY_USER_ADMIN_PASSWORD}" | base64 -d)
+{{- else }}
+The password is stored in the Kubernetes secret "{{ .Values.config.users.admin.externalSecret.name }}" defined in values.
+{{- end }}
+
+## Authentications backends
+
+{{- if and (not .Values.config.authentications.externalSecret) .Values.config.authentications.backends }}
+
+Credentials defined in values are store in the secret Kubernetes "{{ .Release.Name }}-authentications-backends".
+{{- else if and .Values.config.authentications.externalSecret (not .Values.config.authentications.backends) }}
+
+Credentials are store in the secret Kubernetes "{{ .Values.config.authentications.externalSecret.name }}" defined in values.
+{{- else if and .Values.config.authentications.externalSecret .Values.config.authentications.backends }}
+
+Credentials are store in the secret Kubernetes "{{ .Values.config.authentications.externalSecret.name }}" defined in values.
+{{- else if and (not .Values.config.authentications.externalSecret) (not .Values.config.authentications.backends) }}
+
+No authentication backend provided.
+{{- end }}
+
+## Mails
+
+{{- if and .Values.config.mails.sendmail.enabled (not .Values.config.mails.smtp.enabled) }}
+
+Znuny's mailing system is set to use the local Sendmail module.
+{{- else if and .Values.config.mails.sendmail.enabled .Values.config.mails.smtp.enabled }}
+
+Znuny's mailing system is set to use the local Sendmail module.
+{{- else if and (not .Values.config.mails.sendmail.enabled) .Values.config.mails.smtp.enabled }}
+
+Znuny's mailing system is set to use a SMTP server.
+{{- if and .Values.config.mails.smtp.enabled (not .Values.config.mails.smtp.externalSecret) }}
+Credentials defined in values are store in the secret Kubernetes "{{ .Release.Name }}-smtp-credentials".
+{{- else if and .Values.config.mails.smtp.enabled .Values.config.mails.smtp.externalSecret }}
+Credentials are store in the secret Kubernetes "{{ .Values.config.mails.smtp.externalSecret.name }}" defined in values.
+{{- end }}
+{{- end }}
+
+## Service
+
+Znuny can be accessed via port 80 on the following DNS names from within your cluster:
+
+    znuny.{{ .Release.Namespace }}.svc.cluster.local - HTTP connection
+
+{{- if .Values.ingress.enabled }}
+
+If needed, Znuny's web UI can be reached by port forwarding:
+
+    kubectl --namespace {{ .Release.Namespace }} port-forward svc/znuny 8080:80
+
+## Ingress
+
+Znuny is exposed via an ingress on the domains :
+    {{ range $domain := .Values.ingress.domains }}
+    * "{{ $domain }}"
+    {{- end }}
+
+It can be accessed from a web browser at :
+    {{- if .Values.ingress.tls.enabled }}
+    {{ range $domain := .Values.ingress.domains }}
+    https://{{ $domain }} - HTTPS connection
+    {{- end }}
+    {{- else }}
+
+    {{- range $domain := .Values.ingress.domains }}
+    http://{{ .domain }} - HTTP connection
+    {{- end }}
+    {{- end }}
+{{- end }}
+
+## Usage
+
+To connect to the container shell:
+
+    kubectl --namespace {{ .Release.Namespace }} exec -ti <pod> -- /bin/bash
+
+> NOTE: In this way, any actions performed will be executed as root.
+
+To connect to the container shell with the application user:
+
+    kubectl --namespace {{ .Release.Namespace }} exec -ti <pod> -- su otrs -s /bin/bash
+
+> NOTE: You can now run Znuny's CLI command with the application console : "./bin/otrs.Console.pl List".
+
+To run a Znuny's CLI command without persistent shell connection:
+
+    kubectl --namespace {{ .Release.Namespace }} exec -ti <pod> -- su -c "/opt/otrs/bin/otrs.Console.pl List" -s /bin/sh otrs
+
+> NOTE: Take care to not run deamonized process.
+
+**Znuny deployment successfully completed !**
+
+

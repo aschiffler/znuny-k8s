@@ -1,0 +1,168 @@
+name: zcli
+help: Simple cli to manage Znuny's applicative container
+version: 6.5.7
+
+environment_variables:
+  - name: ZNUNY_TIMEZONE
+    help: The service timezone
+  - name: ZNUNY_LOG_PATH
+    help: The log file path
+  - name: ZNUNY_SECURE_MODE
+    help: Enable or not the secure mode
+  - name: ZNUNY_DATABASE_HOST
+    help: The database host
+  - name: ZNUNY_DATABASE_PORT
+    help: The database port
+  - name: ZNUNY_DATABASE_NAME
+    help: The database name
+  - name: ZNUNY_DATABASE_USER
+    help: The database user
+  - name: ZNUNY_DATABASE_PASSWORD
+    help: The database password
+  - name: ZNUNY_USER_ADMIN_NAME
+    help: The admin user name
+  - name: ZNUNY_USER_ADMIN_PASSWORD
+    help: The admin user password
+  - name: ZNUNY_MAILING_TYPE
+    help: The mailing type
+  - name: ZNUNY_MAILING_HOST
+    help: The mailing host
+  - name: ZNUNY_MAILING_PORT
+    help: The mailing port
+  - name: ZNUNY_MAILING_USER
+    help: The mailing user
+  - name: ZNUNY_MAILING_PASSWORD
+    help: The mailing password
+  - name: ZNUNY_APACHE_DOMAIN
+    help: The application domain
+  - name: ZNUNY_APACHE_REWRITE_RULES
+    help: A custom rewrite rule
+  - name: ZNUNY_AUTHENTICATIONS_BACKENDS
+    help: Users authentication settings
+  - name: ZNUNY_ADDONS
+    help: List of application extensions to add
+  - name: ZNUNY_CONFIGURATIONS_OVERRIDES_DIRECTORY
+    help: Directory path of custom configurations overrides
+  - name: ZNUNY_HEALTHSTATUS_APIKEY
+    help: Api key to use with the plugin healthstatus
+  - name: ZNUNY_SETTINGS_FILE
+    help: Full content of the configuration file
+
+commands:
+  - name: config
+    help: Manage the configuration of znuny
+    commands:
+      - name: apache
+        help: Create virtualhosts
+      - name: crons
+        help: Create all crons
+      - name: database
+        help: Initialize the database
+      - name: locales
+        help: Set locales
+      - name: modules
+        help: Install application extensions
+      - name: override
+        help: Override given configurations
+      - name: timezone
+        help: Set the timezone
+      - name: znuny
+        help: Create the main configuration file of Znuny
+
+  - name: check
+    help: Check some features or resources
+    commands:
+      - name: modules
+        help: Check Perl modules
+      - name: config
+        help: Check the built configuration in database
+
+  - name: download
+    help: Download the znuny archive
+    flags:
+      - short: -r
+        arg: release
+        required: true
+        help: Release version of Znuny
+      - short: -s
+        arg: signature
+        required: true
+        help: Checksum signature of the Znuny release
+
+  - name: init
+    help: Initialize the container
+    commands:
+      - name: all
+        help: Initialize all features
+      - name: frontend
+        help: Initialize only the daemon and the webserver
+      - name: background
+        help: Initialize only crons
+
+  - name: job
+    help: Commands for kubernetes job
+    commands:
+      - name: migration
+        help: Migrate an existing database from a PostgreSQL server to the application database
+        commands:
+          - name: database
+            help: Migrate an existing database from a working server
+            flags:
+              - short: -h
+                arg: host
+                required: true
+                help: The database host
+              - short: -p
+                arg: port
+                required: true
+                help: The database port
+              - short: -n
+                arg: name
+                required: true
+                help: The database name
+              - short: -u
+                arg: user
+                required: true
+                help: The database user
+              - short: -w
+                arg: password
+                required: true
+                help: The database password
+              - short: -f
+                arg: force
+                required: false
+          - name: local
+            help: Migrate an existing database from a dump file on the local filesystem
+            args:
+              - name: path
+                required: true
+                help: Path of the dump file
+            flags:
+              - short: -f
+                arg: force
+                required: false
+
+  - name: run
+    help: Run Znuny
+    commands:
+      - name: apache2
+        help: Run Apache2 web server
+      - name: cron
+        help: Run the crons of Znuny
+      - name: daemon
+        help: Run the daemon of Znuny
+      - name: znuny
+        help: Run Znuny
+
+  - name: upgrade
+    help: Ensure Znuny is up to date
+
+  - name: user
+    help: Manage users
+    commands:
+      - name: admin
+        help: Create the admin user
+      - name: permissions
+        help: Set the user permissions
+      - name: system
+        help: Create the system user

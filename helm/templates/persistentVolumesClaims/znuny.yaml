@@ -1,0 +1,21 @@
+{{- $rel := .Release -}}
+{{- range $pvc := .Values.persistentVolumeClaims }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $rel.Name }}-{{ $pvc.name }}
+  namespace: {{ $rel.Namespace }}
+  labels:
+    app: znuny
+    service: {{ $rel.Name }}-{{ $rel.Namespace }}
+spec:
+  accessModes:
+{{- range $pvc.accessModes }}
+    - {{ . }}
+{{- end }}
+  resources:
+    requests:
+      storage: {{ $pvc.size }}
+status: {}
+{{- end }}

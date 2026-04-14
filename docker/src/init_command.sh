@@ -1,0 +1,2 @@
+zcli init --help
+

@@ -1,0 +1,18 @@
+{{- $rel := .Release -}}
+{{- if .Values.extraConfigMaps }}
+{{- range $ecm := .Values.extraConfigMaps }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $ecm.name }}
+  namespace: {{ $rel.Namespace }}
+  labels:
+    app: znuny
+    service: {{ $rel.Name }}-{{ $rel.Namespace }}
+data:
+{{- range $item := $ecm.items }}
+  {{ $item.key }}: {{ quote $item.data }}
+{{- end }}
+{{- end }}
+{{- end }}

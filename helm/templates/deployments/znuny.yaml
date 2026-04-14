@@ -1,0 +1,161 @@
+{{- $rel := .Release -}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $rel.Name }}
+  namespace: {{ $rel.Namespace }}
+  labels:
+    app: znuny
+    service: {{ $rel.Name }}-{{ $rel.Namespace }}
+  {{- if .Values.pod.labels }}
+    {{- toYaml .Values.pod.labels | nindent 4 }}
+  {{- end }}
+  {{- if .Values.pod.annotations }}
+  annotations:
+    {{- toYaml .Values.pod.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.pod.replicaCount }}
+  selector:
+    matchLabels:
+      instance: {{ $rel.Name }}-{{ $rel.Namespace }}
+  strategy:
+    type: {{ .Values.pod.deploymentStrategy }}
+  template:
+    metadata:
+      labels:
+        app: znuny
+        service: {{ $rel.Name }}-{{ $rel.Namespace }}
+        instance: {{ $rel.Name }}-{{ $rel.Namespace }}
+    spec:
+      containers:
+        - name: znuny
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          {{- if .Values.pod.resources }}
+          resources:
+            limits:
+              cpu: {{ .Values.pod.resources.limits.cpu }}
+              memory: {{ .Values.pod.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.pod.resources.requests.cpu }}
+              memory: {{ .Values.pod.resources.requests.memory }}
+          {{- else }}
+          resources: {}
+          {{- end }}
+          {{- if or .Values.persistentVolumeClaims .Values.extraConfigmapMounts }}
+          volumeMounts:
+          {{- end }}
+            {{- range $pvc := .Values.persistentVolumeClaims }}
+            - mountPath: {{ $pvc.mount }}
+              name: {{ $rel.Name }}-{{ $pvc.name }}
+            {{- end }}
+            {{- range $ecmm := .Values.extraConfigmapMounts }}
+            - name: {{ $ecmm.name }}
+              mountPath: {{ $ecmm.mountPath }}
+              subPath: {{ $ecmm.subpath }}
+              readOnly: false
+            {{- end }}
+          envFrom:
+          - configMapRef:
+              name: {{ $rel.Name }}-global-config
+          {{- if and (not .Values.config.apache.rewriteRules.externalConfigMap) .Values.config.apache.rewriteRules.rules }}
+          - configMapRef:
+              name: {{ $rel.Name }}-rewrite-rules
+          {{- else if and .Values.config.apache.rewriteRules.externalConfigMap .Values.config.apache.rewriteRules.rules }}
+          - configMapRef:
+              name: {{ .Values.config.apache.rewriteRules.externalConfigMap.name }}
+          {{- end }}
+          {{- if not .Values.config.database.externalSecret }}
+          - secretRef:
+              name: {{ $rel.Name }}-database-credentials
+          {{- else }}
+          - secretRef:
+              name: {{ .Values.config.database.externalSecret.name }}
+          {{- end }}
+          {{- if not .Values.config.users.admin.externalSecret }}
+          - secretRef:
+              name: {{ $rel.Name }}-users-admin-credentials
+          {{- else }}
+          - secretRef:
+              name: {{ .Values.config.users.admin.externalSecret.name }}
+          {{- end }}
+          {{- if and .Values.config.mails.smtp.enabled (not .Values.config.mails.smtp.externalSecret) }}
+          - secretRef:
+              name: {{ $rel.Name }}-smtp-credentials
+          {{- else if and .Values.config.mails.smtp.enabled .Values.config.mails.smtp.externalSecret }}
+          - secretRef:
+              name: {{ .Values.config.mails.smtp.externalSecret.name }}
+          {{- end }}
+          {{- if and (not .Values.config.authentications.externalSecret) .Values.config.authentications.backends }}
+          - secretRef:
+              name: {{ $rel.Name }}-authentications-backends
+          {{- else if and .Values.config.authentications.externalSecret (not .Values.config.authentications.backends) }}
+          - secretRef:
+              name: {{ .Values.config.authentications.externalSecret.name }}
+          {{- else if and .Values.config.authentications.externalSecret .Values.config.authentications.backends }}
+          - secretRef:
+              name: {{ .Values.config.authentications.externalSecret.name }}
+          {{- end }}
+          {{- if and (not .Values.config.api.healthstatus.externalSecret) .Values.config.api.healthstatus.apiKey }}
+          - secretRef:
+              name: {{ $rel.Name }}-api-credentials
+          {{- else if and .Values.config.api.healthstatus.externalSecret (not .Values.config.api.healthstatus.apiKey) }}
+          - secretRef:
+              name: {{ .Values.config.api.healthstatus.externalSecret.name }}
+          {{- else if and .Values.config.api.healthstatus.externalSecret .Values.config.api.healthstatus.apiKey }}
+          - secretRef:
+              name: {{ .Values.config.api.healthstatus.externalSecret.name }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /znuny/index.pl
+              port: 80
+            failureThreshold: 1
+            periodSeconds: 5
+          startupProbe:
+            httpGet:
+              path: /znuny/index.pl
+              port: 80
+            failureThreshold: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /znuny/index.pl
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      hostname: {{ $rel.Name }}
+      restartPolicy: {{ .Values.pod.restartPolicy }}
+      {{- if or .Values.image.pullSecrets .Values.image.externalPullSecrets }}
+      imagePullSecrets:
+      {{- end }}
+      {{- range $ps := .Values.image.pullSecrets }}
+        - name: {{ $ps.name }}-container-registry
+      {{- end }}
+      {{- range $eps := .Values.image.externalPullSecrets }}
+        - name: {{ $eps.name }}
+      {{- end }}
+      {{- if or .Values.persistentVolumeClaims .Values.extraConfigmapMounts }}
+      volumes:
+      {{- end }}
+        {{- range $pvc := .Values.persistentVolumeClaims }}
+        - name: {{ $rel.Name }}-{{ $pvc.name }}
+          persistentVolumeClaim:
+            claimName: {{ $rel.Name }}-{{ $pvc.name }}
+        {{- end }}
+        {{- range $ecmm := .Values.extraConfigmapMounts }}
+        - name: {{ $ecmm.name }}
+          configMap:
+            name: {{ $ecmm.configMap }}
+        {{- end }}
+      {{- if .Values.pod.securityContext }}
+      securityContext:
+        {{- toYaml .Values.pod.securityContext | nindent 8 }}
+      {{- end }}
+
+
+

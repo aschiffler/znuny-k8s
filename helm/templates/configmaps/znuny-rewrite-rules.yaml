@@ -1,0 +1,14 @@
+{{- $rel := .Release -}}
+{{- if and (not .Values.config.apache.rewriteRules.externalConfigMap) .Values.config.apache.rewriteRules.rules }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $rel.Name }}-rewrite-rules
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: znuny
+    service: {{ .Release.Name }}-{{ .Release.Namespace }}
+data:
+  ZNUNY_APACHE_REWRITE_RULES: {{ quote .Values.config.apache.rewriteRules.rules }}
+{{- end }}
