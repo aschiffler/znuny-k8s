@@ -77,13 +77,13 @@ Znuny is exposed via an ingress on the domains :
 
 It can be accessed from a web browser at :
     {{- if .Values.ingress.tls.enabled }}
-    {{ range $domain := .Values.ingress.domains }}
-    https://{{ $domain }} - HTTPS connection
+    {{ range .Values.ingress.domains }}
+    https://{{ . }} - HTTPS connection
     {{- end }}
     {{- else }}
 
-    {{- range $domain := .Values.ingress.domains }}
-    http://{{ .domain }} - HTTP connection
+    {{- range .Values.ingress.domains }}
+    http://{{ . }} - HTTP connection
     {{- end }}
     {{- end }}
 {{- end }}

@@ -15,6 +15,7 @@ metadata:
     {{- toYaml .Values.ingress.annotations | nindent 4 }}
   {{- end }}
 spec:
+  ingressClassName: {{ .Values.ingress.class }}
   rules:
     {{- range $domain := .Values.ingress.domains }}
     - host: {{ $domain }}
