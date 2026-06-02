@@ -18,6 +18,15 @@ require_env() {
   [[ -n "${!1:-}" ]] || die "Environment variable $1 is required"
 }
 
+# ---------- load .env ----------
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+  set -o allexport
+  # shellcheck source=/dev/null
+  source "$SCRIPT_DIR/.env"
+  set +o allexport
+  info "Loaded .env from $SCRIPT_DIR"
+fi
+
 # ---------- required env vars ----------
 require_env GH_TOKEN       # GitHub PAT to clone znuny-k8s repo for Kaniko build
 require_env DB_PASSWORD    # PostgreSQL / Znuny DB password
