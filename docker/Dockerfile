@@ -20,7 +20,7 @@ ARG ZNUNY_CHECKSUM
 
 WORKDIR /opt/znuny
 
-RUN apt-get update && apt-get install -y --no-install-recommends\
+RUN apt-get update && apt-get install -y --no-install-recommends \
   build-essential \
   cpanminus \
   libjq-dev \
@@ -32,9 +32,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends\
   cron \
   locales \
   gnupg2 \
-  cpanminus \
   libapache2-mod-perl2 \
-  libapache2-mod-auth-openidc \
+  libssl-dev \
+  libxml2-dev \
   libtimedate-perl \
   libnet-dns-perl \
   libnet-ldap-perl \
@@ -80,7 +80,7 @@ RUN curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmo
   && apt install -y postgresql-client-16 \
   && apt-get clean all
 
-RUN cpanm Jq
+RUN cpanm Jq Net::SAML2
 
 COPY --from=builder /tmp/zcli /usr/bin/
 

@@ -1,0 +1,96 @@
+# Deployment values for ticket.thws.education
+# Secrets required before deploy:
+#   kubectl create secret generic znuny-db-password     --from-literal=password=<pw>          -n znuny
+#   kubectl create secret generic znuny-db-password-helm --from-literal=ZNUNY_DATABASE_USER=znuny --from-literal=ZNUNY_DATABASE_PASSWORD=<pw> -n znuny
+#   kubectl create secret generic znuny-admin-password  --from-literal=ZNUNY_USER_ADMIN_NAME=admin --from-literal=ZNUNY_USER_ADMIN_PASSWORD=<pw> -n znuny
+
+image:
+  repository: localhost:32000/znuny
+  tag: "7.3"
+  pullPolicy: Always
+
+config:
+  database:
+    host: postgres
+    port: 5432
+    name: znuny
+    username: znuny
+    password: ""
+    externalSecret:
+      name: znuny-db-password-helm
+
+  timezone: Europe/Berlin
+  secureMode: true
+
+  logs:
+    path: /var/log/znuny
+
+  apache:
+    domain: ticket.thws.education
+
+  users:
+    admin:
+      username: admin
+      password: ""
+      externalSecret:
+        name: znuny-admin-password
+
+  mails:
+    sendmail:
+      enabled: false
+    smtp:
+      enabled: false
+
+  addons:
+    enabled: false
+    packages: []
+
+  authentications:
+    backends: |-
+      $Self->{'AuthModule1'}     = 'Kernel::System::Auth::SAML';
+      $Self->{'AuthSyncModule1'} = 'Kernel::System::Auth::Sync::SAML';
+      $Self->{'AuthModule::SAML::Issuer1'}                      = 'https://ticket.thws.education/znuny/';
+      $Self->{'AuthModule::SAML::RequestAssertionConsumerURL1'} = 'https://ticket.thws.education/znuny/index.pl?Action=Login';
+      $Self->{'AuthModule::SAML::RequestLoginButtonText1'}      = 'Login with THWS Account';
+      $Self->{'AuthModule::SAML::RequestSignKey1'}              = '/overrides/SAML/sp.key';
+      $Self->{'AuthModule::SAML::RequestMetaDataURL1'}          = 'https://keycloak.thws.education/realms/thws/protocol/saml/descriptor';
+      $Self->{'AuthModule::SAML::IdPCACert1'}                   = '/overrides/SAML/idp.crt';
+      $Self->{'AuthSyncModule::SAML::UserSyncMap1'} = { UserFirstname => 'givenName', UserLastname => 'sn', UserEmail => 'email' };
+      $Self->{HttpType} = 'https';
+      $Self->{FQDN}     = 'ticket.thws.education';
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: true
+  class: traefik
+  annotations:
+    cert-manager.io/cluster-issuer: azure-issuer-cluster
+    traefik.ingress.kubernetes.io/router.tls: "true"
+  domains:
+    - ticket.thws.education
+  tls:
+    enabled: true
+
+persistentVolumeClaims:
+  - name: data
+    size: 1Gi
+    mount: /overrides
+    accessModes:
+      - ReadWriteOnce
+
+pod:
+  replicaCount: 1
+  restartPolicy: Always
+  deploymentStrategy: Recreate
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4096Mi
+    requests:
+      cpu: 500m
+      memory: 1024Mi
+
+extraConfigmapMounts: []

@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<md:EntityDescriptor
+  xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+  xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
+  entityID="https://ticket.thws.education/znuny/">
+
+  <md:SPSSODescriptor
+    AuthnRequestsSigned="true"
+    WantAssertionsSigned="true"
+    protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+
+    <md:KeyDescriptor use="signing">
+      <ds:KeyInfo><ds:X509Data><ds:X509Certificate>MIIDWTCCAkGgAwIBAgIUGHTqsbltGJSh1UJCXcCfYPsAT7UwDQYJKoZIhvcNAQELBQAwPDEeMBwGA1UEAwwVdGlja2V0LnRod3MuZWR1Y2F0aW9uMQ0wCwYDVQQKDARUSFdTMQswCQYDVQQGEwJERTAeFw0yNjA2MDEyMzAxNTFaFw0zNjA1MjkyMzAxNTFaMDwxHjAcBgNVBAMMFXRpY2tldC50aHdzLmVkdWNhdGlvbjENMAsGA1UECgwEVEhXUzELMAkGA1UEBhMCREUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDdjrnzvkbWzGsov38ZzbjT251ASEtCpuVrUm6vAL9+8XIhHUAW9vvOzl7D9SAIzZt/zQFNG7MzkpIO7spqbLpHnBbiFgFH8uOLzKOkVPQtFpBFTdHhTXaSLOzMwNCOCYcn4auL1EbWcVPXu7dNba+z7o+cFCqMdByh5XmdfzkRsgKz4TTsD5V3tF3Gy3mGat8nKi0MFGbPaz1aWmAhjzaZdt87IZR2o85j42Spm8GpSxThf+GVUnjd2z5TipPDegB/taQmkQXhQR6uWSeMBH4dmSiaEo+ur2UZiLebMui8kE2L6Dz+uJoHOpnFgu7BgiWUSeEh2itcnhiuuNTTQVilAgMBAAGjUzBRMB0GA1UdDgQWBBSyhxoJ99h0SbZsnyFrtGDEFt4S8jAfBgNVHSMEGDAWgBSyhxoJ99h0SbZsnyFrtGDEFt4S8jAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQA9+YG4aHbH8qz0yw+SksX+kKklYaHWI9p76DxHuFgFZ/qzjs5jJw+S7Cy/4cQv9jGPVIg2TgT14N+Q/pfj6L6Rer3huMODinX7l/dXUxw/vwzP61mvfpWAZve9DqnQMuZ7wXl9PfVe7Da8pNaFzD8mqzyGxqgukjumu2Drp7xiQDUZqw8sT1vyOy+x4MgM5i9eSU8AacskaPhRvD5n7xs5JYdjZaUiHtSqa7o9cRNFlj6RVcTB5ZSv30uxAq2v9Im22CN/+k57pksTIjShMphglhsum1PyrnbP/epUjUQLJaemyysseL7Z7H7BsSOe11YPM/VmlC9O/XRNYGhVhsyG</ds:X509Certificate></ds:X509Data></ds:KeyInfo>
+    </md:KeyDescriptor>
+
+    <md:AssertionConsumerService
+      Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+      Location="https://ticket.thws.education/znuny/index.pl?Action=Login;IsSAMLLogin=1;Count=1;"
+      index="1"/>
+
+  </md:SPSSODescriptor>
+</md:EntityDescriptor>
