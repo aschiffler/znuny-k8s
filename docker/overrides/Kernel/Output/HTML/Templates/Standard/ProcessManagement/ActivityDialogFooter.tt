@@ -1,0 +1,157 @@
+# --
+# Copyright (C) 2001-2021 OTRS AG, https://otrs.com/
+# Copyright (C) 2021 Znuny GmbH, https://znuny.org/
+# --
+# This software comes with ABSOLUTELY NO WARRANTY. For details, see
+# the enclosed file COPYING for license information (GPL). If you
+# did not receive this file, see https://www.gnu.org/licenses/gpl-3.0.txt.
+# --
+## nofilter(TidyAll::Plugin::Znuny::TT::Format)
+## nofilter(TidyAll::Plugin::Znuny::TT::ScriptUsage)
+
+                    </fieldset>
+                </div>
+[% RenderBlockStart("Footer") %]
+                <div class="activity-dialog-footer">
+[% RenderBlockStart("SubmitAdviceText") %]
+                    <div class="message-container">
+                        <p class="SubmitInfo">[% Translate(Data.AdviceText) | html %]</p>
+                    </div>
+[% RenderBlockEnd("SubmitAdviceText") %]
+                    <button class="btn-main btn-width-md btn-primary CallForAction Primary" id="[% Data.ButtonID | html %]" accesskey="g" title="[% Translate(Data.ButtonTitle) | html %] (g)" type="submit" value="[% Translate(Data.ButtonText) | html %]"><span>[% Translate(Data.ButtonText) | html %]</span></button>
+                </div>
+[% RenderBlockEnd("Footer") %]
+            </div>
+        </form>
+    </div>
+</div>
+[% RenderBlockStart("FooterJS") %]
+<script type="text/javascript">
+[% PROCESS JSDataInsert %]
+[% PROCESS JSOnDocumentCompleteInsert %]
+</script>
+[% RenderBlockEnd("FooterJS") %]
+## nofilter(TidyAll::Plugin::Znuny::TT::ScriptUsage)
+## THWS customization: turn the "Positionsbeschreibung" textarea into an editable
+## item table (Anzahl / Beschreibung / Einzelpreis). The rows are serialized to
+## JSON into the (hidden) textarea DynamicField_BeschaffungPositionsbeschreibung,
+## and the totals are written into the hidden Menge / GeschaetzterWert fields so
+## the existing process transitions keep working. Identical block lives in
+## CustomerActivityDialogFooter.tt (customer interface) - keep both in sync.
+<script type="text/javascript">
+//<![CDATA[
+(function () {
+    var $ = window.jQuery;
+    if (!$) { return; }
+
+    var $store = $('#DynamicField_BeschaffungPositionsbeschreibung');
+    if (!$store.length) { return; }            // not the BANF "create" dialog
+    if ($store.data('THWSItemTableDone')) { return; }
+    $store.data('THWSItemTableDone', true);
+
+    var Label = {
+        head:  'Bestellpositionen',
+        count: 'Anzahl',
+        desc:  'Beschreibung',
+        price: 'Einzelpreis €',
+        line:  'Summe €',
+        add:   '+ Position hinzufügen',
+        del:   '×',
+        total: 'Gesamtsumme (EUR netto): '
+    };
+
+    // Hide the raw textarea row and the now-redundant single-value rows.
+    $('.Row_DynamicField_BeschaffungPositionsbeschreibung').hide();
+    $('.Row_DynamicField_BeschaffungMenge').hide();
+    $('.Row_DynamicField_BeschaffungEinheit').hide();
+    $('.Row_DynamicField_BeschaffungGeschaetzterWert').hide();
+
+    function num(v) {
+        if (v === undefined || v === null) { return 0; }
+        var s = String(v).trim();
+        if (s === '') { return 0; }
+        if (s.indexOf(',') > -1) { s = s.replace(/\./g, '').replace(',', '.'); }
+        var n = parseFloat(s);
+        return isNaN(n) ? 0 : n;
+    }
+    function fmt(n) { return n.toFixed(2).replace('.', ','); }
+    function esc(v) {
+        return $('<div>').text(v === undefined || v === null ? '' : v).html().replace(/"/g, '&quot;');
+    }
+
+    var $table = $('<table class="DataTable" style="width:100%;margin-bottom:8px;"></table>');
+    $table.append(
+        '<thead><tr>' +
+        '<th style="width:80px;">'  + Label.count + '</th>' +
+        '<th>'                      + Label.desc  + '</th>' +
+        '<th style="width:130px;">' + Label.price + '</th>' +
+        '<th style="width:110px;text-align:right;">' + Label.line + '</th>' +
+        '<th style="width:36px;"></th>' +
+        '</tr></thead>'
+    );
+    var $tbody = $('<tbody></tbody>').appendTo($table);
+    var $totalOut = $('<span>0,00</span>');
+
+    function recalc() {
+        var items = [], totalCount = 0, totalSum = 0;
+        $tbody.find('tr').each(function () {
+            var $r = $(this);
+            var c = $r.find('.thws-count').val();
+            var d = $r.find('.thws-desc').val();
+            var p = $r.find('.thws-price').val();
+            var lineSum = num(c) * num(p);
+            $r.find('.thws-line').text(fmt(lineSum));
+            var filled = (c && c.trim() !== '') || (d && d.trim() !== '') || (p && p.trim() !== '');
+            if (filled) {
+                items.push({ count: String(c || ''), desc: String(d || ''), price: String(p || '') });
+                totalCount += num(c);
+                totalSum   += lineSum;
+            }
+        });
+        $store.val(items.length ? JSON.stringify(items) : '');
+        $('#DynamicField_BeschaffungMenge').val(totalCount ? String(totalCount) : '');
+        $('#DynamicField_BeschaffungGeschaetzterWert').val(totalSum ? fmt(totalSum) : '');
+        $totalOut.text(fmt(totalSum));
+    }
+
+    function addRow(data) {
+        data = data || {};
+        var $tr = $('<tr></tr>');
+        $tr.append('<td><input type="text" class="thws-count" style="width:70px;"  value="' + esc(data.count) + '"></td>');
+        $tr.append('<td><input type="text" class="thws-desc"  style="width:100%;" value="' + esc(data.desc)  + '"></td>');
+        $tr.append('<td><input type="text" class="thws-price" style="width:120px;" value="' + esc(data.price) + '"></td>');
+        $tr.append('<td class="thws-line" style="text-align:right;padding-right:6px;">0,00</td>');
+        var $del = $('<button type="button" class="btn-cancel-ghost" title="Entfernen" style="cursor:pointer;">' + Label.del + '</button>');
+        $del.on('click', function () { $tr.remove(); recalc(); });
+        $('<td style="text-align:center;"></td>').append($del).appendTo($tr);
+        $tbody.append($tr);
+    }
+
+    var $add = $('<button type="button" class="btn-main btn-width-md" style="margin:0 0 10px 0;"><span>' + Label.add + '</span></button>');
+    $add.on('click', function () { addRow(); recalc(); });
+
+    var $foot = $('<div style="text-align:right;font-weight:bold;margin-bottom:12px;"></div>');
+    $foot.append(document.createTextNode(Label.total)).append($totalOut).append(document.createTextNode(' €'));
+
+    var $wrap = $('<div class="Row field-wrapper thws-item-wrapper"></div>');
+    $wrap.append('<div class="outer-label-wrapper"><label><span class="Marker">*</span> ' + Label.head + '</label></div>');
+    var $field = $('<div class="Field"></div>').appendTo($wrap);
+    $field.append($table).append($add).append($foot);
+
+    var $anchor = $('.Row_DynamicField_BeschaffungPositionsbeschreibung').first();
+    if ($anchor.length) { $wrap.insertBefore($anchor); }
+    else { $store.closest('fieldset, form').append($wrap); }
+
+    $tbody.on('input change keyup', 'input', recalc);
+    $store.closest('form').on('submit', recalc);
+
+    // Initial population from existing JSON (redisplay after validation / back).
+    var existing = [];
+    try { existing = JSON.parse($store.val() || '[]'); } catch (e) { existing = []; }
+    if (Object.prototype.toString.call(existing) !== '[object Array]') { existing = []; }
+    if (!existing.length) { addRow(); addRow(); }
+    else { for (var i = 0; i < existing.length; i++) { addRow(existing[i]); } }
+    recalc();
+})();
+//]]>
+</script>

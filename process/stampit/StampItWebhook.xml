@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ============================================================
+     Znuny System Configuration – StampItWebhook
+     Datei: StampItWebhook.xml
+     Import: Admin → System Configuration → Import/Export
+
+     Hinweis: Die Einstellungen sind optional. Bevorzugt werden APIURL,
+     APIKey und TimeoutSeconds direkt in der Transition-Action-Config
+     gesetzt (siehe process/import_process.pl, Entity 'TA-StampIt-Rechnung'),
+     da SysConfig nicht über die /overrides PVC geladen wird (vgl. CLAUDE.md).
+     ============================================================ -->
+<znuny_config version="2.0" init="Application">
+
+    <!-- URL der StampIt!-API (Endpunkt /stampit) -->
+    <Setting Name="Process::TransitionAction::StampItWebhook::APIURL"
+             Required="0" Valid="1">
+        <Description Translatable="1">
+            URL der StampIt!-API zum Stempeln der Rechnung.
+            Die API erhält einen multipart/form-data POST mit den Feldern:
+            'metadata' (JSON-String mit Kontierungsdaten, StampMetadata-Schema)
+            und 'file' (Binär-PDF). Sie liefert das gestempelte PDF zurück.
+        </Description>
+        <Navigation>Core::ProcessManagement::TransitionAction</Navigation>
+        <Value>
+            <Item ValueType="String" ValueRegex="">https://stampit.thws.education/stampit</Item>
+        </Value>
+    </Setting>
+
+    <!-- API-Key / Bearer-Token (optional) -->
+    <Setting Name="Process::TransitionAction::StampItWebhook::APIKey"
+             Required="0" Valid="1">
+        <Description Translatable="1">
+            Optionaler API-Key oder Bearer-Token für die Authentifizierung.
+            Wird als "Authorization: Bearer ..." Header gesendet.
+            Leer lassen wenn keine Authentifizierung nötig.
+        </Description>
+        <Navigation>Core::ProcessManagement::TransitionAction</Navigation>
+        <Value>
+            <Item ValueType="String" ValueRegex=""></Item>
+        </Value>
+    </Setting>
+
+    <!-- HTTP-Timeout in Sekunden -->
+    <Setting Name="Process::TransitionAction::StampItWebhook::TimeoutSeconds"
+             Required="0" Valid="1">
+        <Description Translatable="1">
+            Timeout in Sekunden für den HTTP-Request zur StampIt!-API.
+            Standard: 60 Sekunden. Bei großen PDFs ggf. erhöhen.
+        </Description>
+        <Navigation>Core::ProcessManagement::TransitionAction</Navigation>
+        <Value>
+            <Item ValueType="String" ValueRegex="^\d+$">60</Item>
+        </Value>
+    </Setting>
+
+    <!-- Transition Action im Process Management registrieren (für die Admin-UI) -->
+    <Setting Name="Process::TransitionAction###StampItWebhook"
+             Required="0" Valid="1">
+        <Description Translatable="1">
+            Registriert StampItWebhook als verfügbare Transition Action
+            im Znuny Process Management.
+        </Description>
+        <Navigation>Core::ProcessManagement::TransitionAction</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Name">Rechnung an StampIt! senden und stempeln</Item>
+                <Item Key="Module">Kernel::System::ProcessManagement::TransitionAction::StampItWebhook</Item>
+            </Hash>
+        </Value>
+    </Setting>
+
+</znuny_config>

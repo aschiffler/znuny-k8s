@@ -1,0 +1,132 @@
+# Standalone Docker replica of the THWS production deployment (values-thws.yaml
+# + helm/templates/*). Same image, same SysConfig/branding/SAML wiring — only
+# the secrets are dummies (see .env.compose.example) and there's no k8s
+# Ingress/TLS termination, HPA, or ConfigMap machinery.
+#
+# Before first run:
+#   cp .env.compose.example .env.compose   # then edit in real secrets
+#   ./docker/generate-saml-certs.sh        # writes docker/overrides/SAML/*
+#
+# Then:
+#   docker compose up -d --build
+#
+# NOTE: the SAML Issuer/ACS URLs baked into ZNUNY_AUTHENTICATIONS_BACKENDS
+# below are literally https://ticket.thws.education/... (copied verbatim from
+# values-thws.yaml, for functional parity with prod's registered Keycloak SP
+# metadata). For SAML login to actually complete against this container, this
+# host must be reachable as ticket.thws.education (e.g. via /etc/hosts + a
+# reverse proxy terminating TLS in front of it) — otherwise the container
+# still runs and the agent/customer UI works, just not the SSO redirect.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: znuny
+      POSTGRES_USER: znuny
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - znuny-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U znuny -d znuny"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  znuny:
+    build:
+      context: ./docker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:80"   # container always listens on 80 (Apache default), regardless of this host port
+    environment:
+      # --- config/znuny-global-configuration ConfigMap equivalent ---
+      ZNUNY_TIMEZONE: Europe/Berlin
+      ZNUNY_SECURE_MODE: "1"
+      ZNUNY_LOG_PATH: /var/log/znuny
+      ZNUNY_DATABASE_HOST: postgres
+      ZNUNY_DATABASE_PORT: "5432"
+      ZNUNY_DATABASE_NAME: znuny
+      ZNUNY_APACHE_DOMAIN: ${ZNUNY_APACHE_DOMAIN:-ticket.thws.education}
+      ZNUNY_CONFIGURATIONS_OVERRIDES_DIRECTORY: /overrides
+      # config.mails.sendmail/smtp are both disabled in values-thws.yaml, so
+      # the chart's ConfigMap never sets ZNUNY_MAILING_TYPE either — leaving
+      # it unset here matches prod exactly (falls back to the image's own
+      # DEFAULT_ZNUNY_MAILING_TYPE=sendmail).
+
+      # --- znuny-rewrite-rules ConfigMap equivalent ---
+      ZNUNY_APACHE_REWRITE_RULES: |-
+        RewriteRule ^/$ https://%{HTTP_HOST}/znuny/customer.pl [R=302,L]
+        RewriteRule ^/znuny/$ https://%{HTTP_HOST}/znuny/customer.pl [R=302,L]
+        RewriteRule ^/znuny$ https://%{HTTP_HOST}/znuny/customer.pl [R=302,L]
+
+      # --- znuny-database-credentials / znuny-users-admin-credentials Secrets equivalent ---
+      ZNUNY_DATABASE_USER: znuny
+      ZNUNY_DATABASE_PASSWORD: ${DB_PASSWORD}
+      ZNUNY_USER_ADMIN_NAME: admin
+      ZNUNY_USER_ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+
+      # --- znuny-authentications-backends Secret equivalent (verbatim from values-thws.yaml) ---
+      ZNUNY_AUTHENTICATIONS_BACKENDS: |-
+        $$Self->{'AuthModule1'}     = 'Kernel::System::Auth::SAML';
+        $$Self->{'AuthSyncModule1'} = 'Kernel::System::Auth::Sync::SAML';
+        $$Self->{'AuthModule::SAML::Issuer1'}                      = 'https://ticket.thws.education/znuny/';
+        $$Self->{'AuthModule::SAML::RequestAssertionConsumerURL1'} = 'https://ticket.thws.education/znuny/index.pl?Action=Login';
+        $$Self->{'AuthModule::SAML::RequestLoginButtonText1'}      = 'Login with THWS Account';
+        $$Self->{'AuthModule::SAML::RequestSignKey1'}              = '/overrides/SAML/sp.key';
+        $$Self->{'AuthModule::SAML::RequestMetaDataURL1'}          = 'https://keycloak.thws.education/realms/thws/protocol/saml/descriptor';
+        $$Self->{'AuthModule::SAML::IdPCACert1'}                   = '/overrides/SAML/idp.crt';
+        $$Self->{'AuthSyncModule::SAML::UserSyncMap1'} = { UserFirstname => 'givenName', UserLastname => 'sn', UserEmail => 'email' };
+        $$Self->{'AuthSyncModule::SAML::UserSyncInitialGroups1'} = ['users'];
+        $$Self->{'AuthSyncModule::SAML::UserSyncGroupsDefinition::Attribute1'} = 'groups';
+        $$Self->{'AuthSyncModule::SAML::UserSyncGroupsDefinition1'} = {
+            '/znuny-admins' => {
+                admin => { rw => 1 },
+                users => { rw => 1 },
+            },
+            '/znuny-agents' => {
+                users => { rw => 1 },
+            },
+        };
+        # $$Self->{'AuthSyncModule::SAML::UserSyncRolesDefinition::Attribute1'} = 'groups';
+        # $$Self->{'AuthSyncModule::SAML::UserSyncRolesDefinition1'} = {
+        #     '/znuny-supervisors' => { Supervisor => 1 },
+        # };
+        $$Self->{'Customer::AuthModule1'}                                         = 'Kernel::System::CustomerAuth::SAML';
+        $$Self->{'Customer::AuthModule::SAML::Issuer1'}                         = 'https://ticket.thws.education/znuny/';
+        $$Self->{'Customer::AuthModule::SAML::RequestAssertionConsumerURL1'}    = 'https://ticket.thws.education/znuny/customer.pl?Action=Login';
+        $$Self->{'Customer::AuthModule::SAML::RequestLoginButtonText1'}         = 'Login with THWS Account';
+        $$Self->{'Customer::AuthModule::SAML::RequestSignKey1'}                 = '/overrides/SAML/sp.key';
+        $$Self->{'Customer::AuthModule::SAML::RequestMetaDataURL1'}             = 'https://keycloak.thws.education/realms/thws/protocol/saml/descriptor';
+        $$Self->{'Customer::AuthModule::SAML::IdPCACert1'}                      = '/overrides/SAML/idp.crt';
+        $$Self->{'Customer::AuthModule::SAML::UserSyncMap1'}                    = { UserFirstname => 'givenName', UserLastname => 'sn', UserEmail => 'email' };
+        $$Self->{HttpType} = 'https';
+        $$Self->{FQDN}     = 'ticket.thws.education';
+    volumes:
+      # Same source tree as CLAUDE.md's docker/overrides/ -> Custom/ mechanism;
+      # docker/overrides/SAML/ (private key material) is gitignored and
+      # generated locally by ./docker/generate-saml-certs.sh.
+      - ./docker/overrides:/overrides
+      # Bind-mounted read-write straight into Kernel/Config/Files/, unlike the
+      # k8s chart's read-only ConfigMap + copy-wrapper entrypoint workaround
+      # (see values-thws.yaml pod.command/args) — a plain bind mount here is
+      # writable, so znuny.SetPermissions.pl can chown it in place.
+      - ./docker/branding/ZZZZZ_THWS.pm:/opt/znuny/Kernel/Config/Files/ZZZZZ_THWS.pm
+    # Matches values-thws.yaml pod.resources.
+    mem_limit: "4096m"
+    mem_reservation: "1024m"
+    cpus: "2.0"
+    healthcheck:
+      # Matches helm/templates/deployments/znuny.yaml's readiness/liveness probes.
+      test: ["CMD", "curl", "-fsk", "http://localhost/znuny/customer.pl"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 180s
+
+volumes:
+  znuny-postgres-data:

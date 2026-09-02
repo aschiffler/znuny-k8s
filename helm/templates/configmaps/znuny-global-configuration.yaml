@@ -16,7 +16,7 @@ data:
   ZNUNY_SECURE_MODE: "0"
   {{- end }}
   {{- if .Values.config.logs }}
-  ZNUNY_LOGS_PATH: {{ .Values.config.logs.path }}
+  ZNUNY_LOG_PATH: {{ .Values.config.logs.path }}
   {{- end }}
   ZNUNY_DATABASE_HOST: {{ .Values.config.database.host | default "localhost" }}
   ZNUNY_DATABASE_PORT: {{ .Values.config.database.port | default "5432" | quote }}

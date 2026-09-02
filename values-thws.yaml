@@ -27,6 +27,11 @@ config:
 
   apache:
     domain: ticket.thws.education
+    rewriteRules:
+      rules: |-
+        RewriteRule ^/$ https://%{HTTP_HOST}/znuny/customer.pl [R=302,L]
+        RewriteRule ^/znuny/$ https://%{HTTP_HOST}/znuny/customer.pl [R=302,L]
+        RewriteRule ^/znuny$ https://%{HTTP_HOST}/znuny/customer.pl [R=302,L]
 
   users:
     admin:
@@ -56,6 +61,51 @@ config:
       $Self->{'AuthModule::SAML::RequestMetaDataURL1'}          = 'https://keycloak.thws.education/realms/thws/protocol/saml/descriptor';
       $Self->{'AuthModule::SAML::IdPCACert1'}                   = '/overrides/SAML/idp.crt';
       $Self->{'AuthSyncModule::SAML::UserSyncMap1'} = { UserFirstname => 'givenName', UserLastname => 'sn', UserEmail => 'email' };
+
+      # Safety-net group for every agent auto-created via SAML, applied once at
+      # creation time regardless of what (if anything) the "groups" attribute
+      # contains, so a first-time login always lands with baseline read access.
+      $Self->{'AuthSyncModule::SAML::UserSyncInitialGroups1'} = ['users'];
+
+      # Keycloak asserts a multi-valued SAML attribute named "groups" (one
+      # <AttributeValue> per Keycloak group the user belongs to). On every
+      # login, each value is looked up as a key below; matches grant/refresh
+      # the listed Znuny group permissions, non-matches are left untouched.
+      # UserSyncGroupsDefinition (not UserSyncAttributeGroupsDefinition) is the
+      # right shape here because "groups" is one multi-valued attribute, not
+      # several distinct single-valued attributes.
+      # NOTE: '/znuny-admins' and '/znuny-agents' are PLACEHOLDER group paths —
+      # replace them with the actual Keycloak group names/paths from the THWS
+      # realm's SAML "group list" attribute mapper before relying on this.
+      $Self->{'AuthSyncModule::SAML::UserSyncGroupsDefinition::Attribute1'} = 'groups';
+      $Self->{'AuthSyncModule::SAML::UserSyncGroupsDefinition1'} = {
+          '/znuny-admins' => {
+              admin => { rw => 1 },
+              users => { rw => 1 },
+          },
+          '/znuny-agents' => {
+              users => { rw => 1 },
+          },
+      };
+
+      # Role-based mapping uses the identical shape (UserSyncRolesDefinition +
+      # ::Attribute, or UserSyncAttributeRolesDefinition for several distinct
+      # attributes) but is left inactive: no Roles exist in this Znuny instance
+      # yet (Admin::Role::List returns none). Create Roles first (Agents ->
+      # Roles, or Admin::Role::Add), then uncomment and adjust:
+      # $Self->{'AuthSyncModule::SAML::UserSyncRolesDefinition::Attribute1'} = 'groups';
+      # $Self->{'AuthSyncModule::SAML::UserSyncRolesDefinition1'} = {
+      #     '/znuny-supervisors' => { Supervisor => 1 },
+      # };
+
+      $Self->{'Customer::AuthModule1'}                                         = 'Kernel::System::CustomerAuth::SAML';
+      $Self->{'Customer::AuthModule::SAML::Issuer1'}                         = 'https://ticket.thws.education/znuny/';
+      $Self->{'Customer::AuthModule::SAML::RequestAssertionConsumerURL1'}    = 'https://ticket.thws.education/znuny/customer.pl?Action=Login';
+      $Self->{'Customer::AuthModule::SAML::RequestLoginButtonText1'}         = 'Login with THWS Account';
+      $Self->{'Customer::AuthModule::SAML::RequestSignKey1'}                 = '/overrides/SAML/sp.key';
+      $Self->{'Customer::AuthModule::SAML::RequestMetaDataURL1'}             = 'https://keycloak.thws.education/realms/thws/protocol/saml/descriptor';
+      $Self->{'Customer::AuthModule::SAML::IdPCACert1'}                      = '/overrides/SAML/idp.crt';
+      $Self->{'Customer::AuthModule::SAML::UserSyncMap1'}                    = { UserFirstname => 'givenName', UserLastname => 'sn', UserEmail => 'email' };
       $Self->{HttpType} = 'https';
       $Self->{FQDN}     = 'ticket.thws.education';
 
@@ -82,6 +132,13 @@ persistentVolumeClaims:
       - ReadWriteOnce
 
 pod:
+  # Copy the branding SysConfig override into Kernel/Config/Files (as a normal
+  # writable file) before the image's default entrypoint, so SetPermissions can
+  # chown it without hitting the read-only ConfigMap mount. Then exec the
+  # original entrypoint (Dockerfile ENTRYPOINT was: zcli init all).
+  command: ["/bin/bash", "-c"]
+  args:
+    - cp /branding/ZZZZZ_THWS.pm /opt/znuny/Kernel/Config/Files/ZZZZZ_THWS.pm && exec zcli init all
   replicaCount: 1
   restartPolicy: Always
   deploymentStrategy: Recreate
@@ -93,4 +150,72 @@ pod:
       cpu: 500m
       memory: 1024Mi
 
-extraConfigmapMounts: []
+# THWS branding + customer label overrides.
+# Delivered as a SysConfig override file mounted into the real config dir.
+# NOTE: the /overrides PVC (-> /opt/znuny/Custom) is NOT scanned for config
+# files or translations by Znuny, only for templates/Perl modules. Config
+# files are globbed only from /opt/znuny/Kernel/Config/Files, so we mount here.
+# ZZZZZ_THWS.pm sorts after ZZZAAuto.pm (deployed SysConfig) and overrides it.
+extraConfigMaps:
+  - name: znuny-branding
+    items:
+      - key: ZZZZZ_THWS.pm
+        data: |
+          package Kernel::Config::Files::ZZZZZ_THWS;
+          use strict;
+          use warnings;
+          use utf8;
+
+          sub Load {
+              my ($File, $Self) = @_;
+
+              # Browser tab / title bar application name (short)
+              $Self->{ProductName} = 'THWS';
+
+              # Company name in outgoing email X-Headers (short)
+              $Self->{Organization} = 'THWS';
+
+              # Company name shown in the customer header (h1.CompanyName) (long)
+              $Self->{CustomerHeadline} = 'Technische Hochschule Würzburg-Schweinfurt';
+
+              # Optional: customer header logo. The image must be reachable, e.g.
+              # placed under skins/Customer/default/img/ or referenced by full URL.
+              # $Self->{CustomerLogo} = {
+              #     URL         => 'skins/Customer/default/img/logo.png',
+              #     StyleHeight => '45px',
+              #     StyleWidth  => '216px',
+              #     StyleTop    => '9px',
+              #     StyleRight  => '0px',
+              # };
+
+              # Rename the customer "Create Process Ticket" menu entry
+              $Self->{'CustomerFrontend::Navigation'}->{'CustomerTicketProcess'}->{'002-ProcessManagement'} = [
+                  {
+                      'Name'        => 'Neue Bestellanforderung',
+                      'Description'  => 'Neue Bestellanforderung erstellen.',
+                      'Link'        => 'Action=CustomerTicketProcess',
+                      'LinkOption'  => '',
+                      'NavBar'      => 'Ticket',
+                      'Type'        => 'Menu',
+                      'Block'       => '',
+                      'AccessKey'   => 'o',
+                      'Prio'        => '0010',
+                      'Group'       => [],
+                      'GroupRo'     => [],
+                  },
+              ];
+
+              return 1;
+          }
+
+          1;
+
+# Mount the override OUTSIDE /opt/znuny. A read-only ConfigMap mount inside
+# /opt/znuny makes znuny.SetPermissions.pl (run at boot) fail to chown/chmod it
+# on the read-only fs and exit 1, which crash-loops the pod. The startup command
+# below copies it into Kernel/Config/Files as a normal writable file instead.
+extraConfigmapMounts:
+  - name: znuny-branding
+    configMap: znuny-branding
+    mountPath: /branding/ZZZZZ_THWS.pm
+    subpath: ZZZZZ_THWS.pm

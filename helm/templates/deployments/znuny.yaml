@@ -33,6 +33,14 @@ spec:
         - name: znuny
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.pod.command }}
+          command:
+            {{- toYaml .Values.pod.command | nindent 12 }}
+          {{- end }}
+          {{- if .Values.pod.args }}
+          args:
+            {{- toYaml .Values.pod.args | nindent 12 }}
+          {{- end }}
           ports:
             - containerPort: {{ .Values.service.port }}
           {{- if .Values.pod.resources }}
@@ -114,20 +122,26 @@ spec:
             httpGet:
               path: /znuny/customer.pl
               port: 80
-            failureThreshold: 1
-            periodSeconds: 5
+            # customer.pl is a mod_perl request that routinely takes 1-2s.
+            # A 1s timeout with failureThreshold 1 SIGKILLs the pod every cycle.
+            timeoutSeconds: 5
+            failureThreshold: 6
+            periodSeconds: 15
           startupProbe:
             httpGet:
               path: /znuny/customer.pl
               port: 80
+            timeoutSeconds: 5
             failureThreshold: 30
             periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /znuny/customer.pl
               port: 80
+            timeoutSeconds: 5
+            failureThreshold: 3
             initialDelaySeconds: 10
-            periodSeconds: 5
+            periodSeconds: 10
       hostname: {{ $rel.Name }}
       restartPolicy: {{ .Values.pod.restartPolicy }}
       {{- if or .Values.image.pullSecrets .Values.image.externalPullSecrets }}

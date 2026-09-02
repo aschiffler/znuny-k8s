@@ -1,5 +1,13 @@
 ARG ZNUNY_VERSION=7.3
-ARG ZNUNY_CHECKSUM=fef081777781edbaab923232e269b009
+# sha256 of https://download.znuny.org/releases/znuny-7.3.tar.gz, recomputed
+# 2026-09-02. NOTE: this URL is a mutable alias for the latest 7.3.x patch
+# release (currently resolves to 7.3.6) rather than an immutable artifact —
+# znuny.org has changed its contents in place before (the previously pinned
+# checksum here was stale, matching neither 7.3.3, the version actually
+# deployed, nor the 7.3.6 content served today). Bumping this checksum is
+# therefore how a version bump gets deliberately acknowledged; a mismatch
+# now fails the build instead of silently extracting whatever is being served.
+ARG ZNUNY_CHECKSUM=bea98ea445d08f998ecff757601dd8a9e59622d5feb664c2f356723c4446b6cb
 
 FROM ruby:alpine AS builder
 
