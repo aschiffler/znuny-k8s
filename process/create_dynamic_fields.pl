@@ -210,8 +210,7 @@ my @Fields = (
             },
         },
     },
-    # --- Gruppe F: StampIt-/Kontierungsstempel-Felder ---
-    # (Mapping siehe doc/map_znuny_stampit.md)
+    # --- Gruppe F: Kontierungsstempel-/Inventarisierungs-Felder ---
     {
         Name       => 'BeschaffungAnwendung',
         Label      => 'Anwendung (AW)',

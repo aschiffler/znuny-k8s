@@ -548,13 +548,6 @@ my @Activities = (
 # ============================================================
 my $MOD_STATE   = 'Kernel::System::ProcessManagement::TransitionAction::TicketStateSet';
 my $MOD_QUEUE   = 'Kernel::System::ProcessManagement::TransitionAction::TicketQueueSet';
-my $MOD_STAMPIT = 'Kernel::System::ProcessManagement::TransitionAction::StampItWebhook';
-
-# StampIt!-API Endpunkt + API-Key. Werden hier direkt in der
-# Transition-Action-Config gesetzt, da SysConfig nicht über die /overrides
-# PVC geladen wird (vgl. CLAUDE.md).
-my $STAMPIT_URL = 'https://stampit.thws.education/stampit';
-my $STAMPIT_KEY = '4711';
 
 my @TransitionActions = (
     { EntityID => 'TA-State-BANFGesendet',       Name => 'Set State: BANF-gesendet',
@@ -587,12 +580,6 @@ my @TransitionActions = (
       Config   => { Module => $MOD_QUEUE, Config => { Queue => 'Beschaffung::Wareneingang',       UserID => '1' } } },
     { EntityID => 'TA-Queue-Rechnungspruefung',   Name => 'Move to: Beschaffung::Rechnungspruefung',
       Config   => { Module => $MOD_QUEUE, Config => { Queue => 'Beschaffung::Rechnungspruefung',  UserID => '1' } } },
-    { EntityID => 'TA-StampIt-Rechnung',          Name => 'Rechnung an StampIt! senden und stempeln',
-      Config   => { Module => $MOD_STAMPIT, Config => {
-          APIURL         => $STAMPIT_URL,
-          APIKey         => $STAMPIT_KEY,
-          TimeoutSeconds => '60',
-      } } },
 );
 
 print "\n=== Transition Actions ===\n";
@@ -696,7 +683,7 @@ my $processConfig = {
         'Activity-Lieferung-Erhalten' => {
             'Transition-Rechnung-Erhalten' => {
                 ActivityEntityID => 'Activity-Rechnung-Erhalten',
-                TransitionAction => ['TA-StampIt-Rechnung', 'TA-State-RechnungErhalten', 'TA-Queue-Rechnungspruefung'],
+                TransitionAction => ['TA-State-RechnungErhalten', 'TA-Queue-Rechnungspruefung'],
             },
         },
         'Activity-Rechnung-Erhalten' => {
